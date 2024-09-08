@@ -665,8 +665,8 @@ video {
 
 .space-x-\[\] > :not([hidden]) ~ :not([hidden]) {
   --tw-space-x-reverse: 0;
-  margin-right: calc( * var(--tw-space-x-reverse));
-  margin-left: calc( * calc(1 - var(--tw-space-x-reverse)));
+  margin-right: calc(1 * var(--tw-space-x-reverse));
+  margin-left: calc( 1* calc(1 - var(--tw-space-x-reverse)));
 }
 
 .space-x-\[100px\] > :not([hidden]) ~ :not([hidden]) {

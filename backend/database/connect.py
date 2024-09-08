@@ -1,9 +1,14 @@
 from pymongo.mongo_client import MongoClient
 from fastapi import FastAPI
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+Api_key = os.getenv('DB_URI')
 
 app = FastAPI()
 
-uri = "mongodb+srv://yakashadav26:dXFFU8fDOz0zzmw6@flashx.cs8nxkx.mongodb.net/?retryWrites=true&w=majority&appName=medbuddy"
+uri = Api_key
 
 
 def database(database_name):

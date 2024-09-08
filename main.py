@@ -1,13 +1,15 @@
 import json
 import os
 import resend
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from json import JSONDecodeError
 from bson.objectid import ObjectId
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Any
+
+import uvicorn
 from backend.Routes import doctors
 from backend.database import connect
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,8 +22,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 resend.api_key = os.getenv('RESEND_API_KEY')
-sengrid_api_key = os.getenv('SENDGRID_API_KEY')
+brevo_api_key = os.getenv('BREVO_API_KEY')  # Updated environment variable
 
+# Configure API key authorization for Brevo
+configuration = sib_api_v3_sdk.Configuration()
+configuration.api_key['api-key'] = brevo_api_key
+
+# Create an instance of the API class
+api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
 
 class ObjectIdEncoder(json.JSONEncoder):
     def default(self, o):
@@ -69,7 +77,6 @@ async def root(user_input: UserInput) -> str | dict:
     return response
 
 
-
 @app.post("/match_doctor")
 async def match_doctor(details: Location_specialization):
     try:
@@ -107,27 +114,39 @@ async def book_appointment(doctor_id: str):
 
 @app.post("/send_email")
 async def send_email(email_data: EmailData):
-    message_doctor = Mail(
-        from_email='yakashadav26@gmail.com',
-        to_emails=email_data.doctorEmail,
-        subject='Appointment Booked',
-        html_content=f'<strong>Booked for {email_data.username} at {email_data.time} on {email_data.date}</strong>')
-    message_user = Mail(
-        from_email='yakashadav26@gmail.com',
-        to_emails=email_data.userEmail,
-        subject='Appointment Booked',
-        html_content=f'<strong>Booked with {email_data.doctorName} on {email_data.date} at {email_data.time}</strong>')
+    # Define the email details for Brevo
+    email_sender = {"name": "Medbuddy", "email": "bhavya12mittal@gmail.com"}
+    email_recipient_doctor = [{"email": email_data.doctorEmail}]
+    email_recipient_user = [{"email": email_data.userEmail}]
+
+    email_content_doctor = f'<strong>Booked for {email_data.username} at {email_data.time} on {email_data.date}</strong>'
+    email_content_user = f'<strong>Booked with {email_data.doctorName} on {email_data.date} at {email_data.time}</strong>'
+
+    # Create the email body for the doctor
+    email_doctor = sib_api_v3_sdk.SendSmtpEmail(
+        to=email_recipient_doctor,
+        sender=email_sender,
+        subject='Appointment Booked Doc',
+        html_content=email_content_doctor
+    )
+
+    # Create the email body for the user
+    email_user = sib_api_v3_sdk.SendSmtpEmail(
+        to=email_recipient_user,
+        sender=email_sender,
+        subject='Appointment Booked User',
+        html_content=email_content_user
+    )
 
     try:
-        sg = SendGridAPIClient(sengrid_api_key)
-        response = sg.send(message_doctor)
-        sg = SendGridAPIClient(sengrid_api_key)
-        response = sg.send(message_user)
+        # Send the email to the doctor
+        response_doctor = api_instance.send_transac_email(email_doctor)
+        # Send the email to the user
+        response_user = api_instance.send_transac_email(email_user)
+
         return {"message": "Appointment Booked and Confirmation has been sent to your email"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ApiException as e:
+        raise HTTPException(status_code=500, detail=f"Error sending email: {e}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")
-
-
